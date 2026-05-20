@@ -1,0 +1,15 @@
+# Environment
+.env
+
+# Virtual environment
+.venv/
+
+# Python bytecode
+__pycache__/
+
+# macOS metadata
+**/.DS_Store
+
+# JetBrains IDE
+.idea/
+**/__init__.py
