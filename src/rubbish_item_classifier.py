@@ -1,8 +1,9 @@
 """
-Classifies a single BGR frame against 50 common rubbish items.
+Classifies a single BGR frame against 47 common rubbish items.
 Returns (item_label, bin_name, confidence_score).
 """
 
+import os
 import cv2
 import torch
 import open_clip
@@ -71,6 +72,7 @@ LABELS = list(ITEMS.keys())
 BINS   = list(ITEMS.values())
 
 # ── Load CLIP ─────────────────────────────────────────────────────────────────
+_DEFAULT_THRESHOLD = float(os.environ.get("FUSSYBIN_CONFIDENCE_THRESHOLD", "0.15"))
 print("Loading CLIP model...")
 model, _, preprocess = open_clip.create_model_and_transforms(
     "ViT-B-32", pretrained="openai"
@@ -82,13 +84,15 @@ model = model.to(device)
 model.eval()
 
 with torch.no_grad():
-    text_tokens   = tokenizer(LABELS)
+    text_tokens   = tokenizer([f"a photo of a {label}" for label in LABELS])
     text_features = model.encode_text(text_tokens.to(device))
     text_features /= text_features.norm(dim=-1, keepdim=True)
 
 
-def classify_frame(frame):
+def classify_frame(frame, threshold=None):
     """Classify a BGR numpy frame. Returns (item, bin_, confidence)."""
+    if threshold is None:
+        threshold = _DEFAULT_THRESHOLD
     rgb   = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     pil   = Image.fromarray(rgb)
     image = preprocess(pil).unsqueeze(0).to(device)
@@ -96,8 +100,10 @@ def classify_frame(frame):
     with torch.no_grad():
         image_features  = model.encode_image(image)
         image_features /= image_features.norm(dim=-1, keepdim=True)
-        similarities    = (image_features @ text_features.T).squeeze(0)
-        best_idx        = similarities.argmax().item()
-        confidence      = similarities[best_idx].item()
+        logits          = model.logit_scale.exp() * (image_features @ text_features.T).squeeze(0)
+        probs           = logits.softmax(dim=-1)
+        best_idx        = probs.argmax().item()
+        confidence      = probs[best_idx].item()
 
-    return LABELS[best_idx], BINS[best_idx], confidence
+    bin_ = BINS[best_idx] if confidence >= threshold else "Unsure"
+    return LABELS[best_idx], bin_, confidence

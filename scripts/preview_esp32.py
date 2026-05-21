@@ -4,12 +4,17 @@ Live preview of ESP32 camera over USB serial.
 Make sure PyCharm's MicroPython REPL is disconnected before running.
 """
 import base64
+import os
+from dotenv import load_dotenv
+
 import serial
 import cv2
 import numpy as np
 
-SERIAL_PORT = "/dev/cu.usbserial-1130"
-BAUD_RATE   = 115200
+load_dotenv()
+
+SERIAL_PORT = os.environ.get("FUSSYBIN_SERIAL_PORT", "/dev/cu.usbserial-1130")
+BAUD_RATE   = int(os.environ.get("FUSSYBIN_BAUD_RATE", "115200"))
 
 def fetch_frame(ser):
     ser.write(b"CAPTURE\n")
