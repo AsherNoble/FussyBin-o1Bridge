@@ -12,6 +12,7 @@ dependencies = [
     "pyserial>=3.5",
     "mpremote>=1.28.0",
     "esptool>=5.2.0",
+    "python-dotenv>=1.0",
 ]
 
 [build-system]
